@@ -43,7 +43,7 @@ def auto_failover(method):
                 self._client = self.fallback_client
 
                 self._in_fallback = True
-                self._in_fallback_date = timezone.now()
+                self._in_fallback_date = datetime_now()
 
             return method(self, *args, **kwargs)
     return _decorator
@@ -68,16 +68,24 @@ class SimpleFailoverClient(DefaultClient):
             del self._fallback_client
 
     def connect(self):
-        if "/" in self._server:
-            self._server, self._fallback = [x.strip() for x in self._server.split("/", 1)]
+        if "/" in self._server[0]:
+            self._server[0], self._fallback = [x.strip() for x in self._server[0].split("/", 1)]
 
-        host, port, db = self.parse_connection_string(self._server)
+        host, port, db = self.parse_connection_string(self._server[0])
 
         # Check syntax of connection string.
         self._fallback_params = self.parse_connection_string(self._fallback)
 
         connection = self._connect(host, port, db)
         return connection
+
+    def get_client(self, write=True):
+        if hasattr(self, '_client'):
+            return self._client
+
+        self._client = self.connect()
+
+        return self._client
 
     @auto_failover
     def set(self, *args, **kwargs):
